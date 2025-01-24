@@ -212,10 +212,10 @@ def validation_constructive(valid_loader, train_loader, model, scaler):
 
     acc_dict = calculator.get_accuracy(
         query_embeddings,
-        reference_embeddings,
         query_labels,
+        reference_embeddings,
         reference_labels,
-        embeddings_come_from_same_source=False
+        ref_includes_query=False
     )
 
     del query_embeddings, query_labels, reference_embeddings, reference_labels

@@ -69,7 +69,7 @@ Pygments==2.7.4
 pyparsing==2.4.7
 pyrsistent==0.17.3
 python-dateutil==2.8.1
-pytorch-metric-learning>=0.9.95
+pytorch-metric-learning>=2
 pytorch-ranger==0.1.1
 pytz==2020.4
 PyWavelets>=1.1.1
