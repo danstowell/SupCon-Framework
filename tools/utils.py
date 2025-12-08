@@ -111,8 +111,8 @@ def build_loaders(data_dir, transforms, batch_sizes, num_workers, second_stage=F
     return {'train_supcon_loader': train_supcon_loader, 'train_features_loader': train_features_loader, 'valid_loader': valid_loader}
 
 
-def build_model(backbone, second_stage=False, num_classes=None, ckpt_pretrained=None):
-    model = SupConModel(backbone=backbone, second_stage=second_stage, num_classes=num_classes)
+def build_model(backbone, second_stage=False, num_classes=None, ckpt_pretrained=None, projection_dim=None):
+    model = SupConModel(backbone=backbone, second_stage=second_stage, num_classes=num_classes, projection_dim=projection_dim)
 
     if ckpt_pretrained:
         model.load_state_dict(torch.load(ckpt_pretrained)['model_state_dict'], strict=False)

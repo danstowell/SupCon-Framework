@@ -1,5 +1,6 @@
 model:
   backbone: resnet18
+  projection_dim: 128
   num_classes:
   top_k_checkoints: 3
 

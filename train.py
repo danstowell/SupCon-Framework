@@ -36,6 +36,7 @@ if __name__ == "__main__":
 
     backbone = hyperparams["model"]["backbone"]
     ckpt_pretrained = hyperparams['model']['ckpt_pretrained']
+    projection_dim = hyperparams['model']['projection_dim']
     num_classes = hyperparams['model']['num_classes']
     amp = hyperparams['train']['amp']
     ema = hyperparams['train']['ema']
@@ -62,7 +63,7 @@ if __name__ == "__main__":
     # create model, loaders, optimizer, etc
     transforms = utils.build_transforms(second_stage=(stage == 'second'))
     loaders = utils.build_loaders(data_dir, transforms, batch_sizes, num_workers, second_stage=(stage == 'second'))
-    model = utils.build_model(backbone, second_stage=(stage == 'second'), num_classes=num_classes, ckpt_pretrained=ckpt_pretrained).cuda()
+    model = utils.build_model(backbone, second_stage=(stage == 'second'), num_classes=num_classes, ckpt_pretrained=ckpt_pretrained, projection_dim=projection_dim).cuda()
 
     if ema:
         iters = len(loaders['train_features_loader'])

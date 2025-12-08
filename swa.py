@@ -40,6 +40,7 @@ if __name__ == "__main__":
     hyperparams = parse_config()
 
     backbone = hyperparams["model"]["backbone"]
+    #projection_dim = hyperparams['model']['projection_dim']
     num_classes = hyperparams['model']['num_classes']
     top_k_checkoints = hyperparams['model']['top_k_checkoints']
     amp = hyperparams['train']['amp']
@@ -61,7 +62,7 @@ if __name__ == "__main__":
 
     transforms = utils.build_transforms(second_stage=(stage == 'second'))
     loaders = utils.build_loaders(data_dir, transforms, batch_sizes, num_workers, second_stage=(stage == 'second'))
-    model = utils.build_model(backbone, second_stage=(stage == 'second'), num_classes=num_classes, ckpt_pretrained=None).cuda()
+    model = utils.build_model(backbone, second_stage=(stage == 'second'), num_classes=num_classes, ckpt_pretrained=None, projection_dim=projection_dim).cuda()
 
     list_of_epochs = sorted([int(x.split('epoch')[1]) for x in os.listdir(weights_dir)])
     best_epochs = list_of_epochs[-top_k_checkoints::]
