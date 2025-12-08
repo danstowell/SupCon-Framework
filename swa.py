@@ -53,6 +53,13 @@ if __name__ == "__main__":
     }
     num_workers = hyperparams["dataloaders"]["num_workers"]
 
+    # Deduce some information from the filename
+    # supcon_stage_first_resnet18_cifar10_D128_sphere
+    weights_dirname_parts = os.path.basename(weights_dir).split("_")
+    assert weights_dirname_parts[5][0]=='D'
+    projection_dim = int(weights_dirname_parts[5][1:])
+    projmode = weights_dirname_parts[6]
+
     if not amp: scaler = None
 
     utils.seed_everything()
