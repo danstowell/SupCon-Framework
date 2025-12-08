@@ -15,6 +15,6 @@ optimizer:
   params:
     lr: 0.001
 
-criterion:
-  name: 'CrossEntropy'
+criteria:
+  - name: 'CrossEntropy'
 

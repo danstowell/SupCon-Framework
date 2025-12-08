@@ -47,7 +47,7 @@ if __name__ == "__main__":
     data_dir = hyperparams["dataset"]
     optimizer_params = hyperparams["optimizer"]
     scheduler_params = hyperparams["scheduler"]
-    criterion_params = hyperparams["criterion"]
+    criteria_params = hyperparams["criteria"]
 
     batch_sizes = {
         "train_batch_size": hyperparams["dataloaders"]["train_batch_size"],
@@ -69,9 +69,9 @@ if __name__ == "__main__":
         ema_decay = ema_decay_per_epoch**(1/iters)
         ema = ExponentialMovingAverage(model.parameters(), decay=ema_decay)
 
-    optim = utils.build_optim(model, optimizer_params, scheduler_params, criterion_params)
-    criterion, optimizer, scheduler = (
-        optim["criterion"],
+    optim = utils.build_optim(model, optimizer_params, scheduler_params, criteria_params)
+    criteria, optimizer, scheduler = (
+        optim["criteria"],
         optim["optimizer"],
         optim["scheduler"],
     )
@@ -106,9 +106,9 @@ if __name__ == "__main__":
 
         start_training_time = time.time()
         if stage == 'first':
-            train_metrics = utils.train_epoch_constructive(loaders['train_supcon_loader'], model, criterion, optimizer, scaler, ema)
+            train_metrics = utils.train_epoch_constructive(loaders['train_supcon_loader'], model, criteria, optimizer, scaler, ema)
         else:
-            train_metrics = utils.train_epoch_ce(loaders['train_features_loader'], model, criterion, optimizer, scaler, ema)
+            train_metrics = utils.train_epoch_ce(loaders['train_features_loader'], model, criteria, optimizer, scaler, ema)
         end_training_time = time.time()
 
         if ema:
@@ -129,7 +129,7 @@ if __name__ == "__main__":
                     train_metrics['loss'], valid_metrics_projection_head, valid_metrics_encoder))
             valid_metrics = valid_metrics_projection_head
         else:
-            valid_metrics = utils.validation_ce(model, criterion, loaders['valid_loader'], scaler)
+            valid_metrics = utils.validation_ce(model, criteria, loaders['valid_loader'], scaler)
             print(
                 'epoch {}, train time {:.2f} valid time {:.2f} train loss {:.2f}\n valid acc dict {}\n'.format(
                     epoch,

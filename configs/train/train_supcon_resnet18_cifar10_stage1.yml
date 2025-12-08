@@ -30,8 +30,8 @@ scheduler:
     T_max: 100
     eta_min: 0.01
 
-criterion:
-  name: 'SupCon'
-  params:
-    temperature: 0.1
 
+criteria:
+  - name: 'SupCon'
+    params:
+      temperature: 0.1

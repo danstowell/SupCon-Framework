@@ -120,11 +120,18 @@ def build_model(backbone, second_stage=False, num_classes=None, ckpt_pretrained=
     return model
 
 
-def build_optim(model, optimizer_params, scheduler_params, loss_params):
-    if 'params' in loss_params:
-        criterion = LOSSES[loss_params['name']](**loss_params['params'])
-    else:
-        criterion = LOSSES[loss_params['name']]()
+def build_optim(model, optimizer_params, scheduler_params, loss_params_list, projmode):
+    criteria = []
+    for loss_params in loss_params_list:
+        if loss_params['name'] in ['SupCon']:
+            if 'params' not in loss_params:
+                loss_params['params'] = {}
+
+        if 'params' in loss_params:
+            new_criterion = LOSSES[loss_params['name']](**loss_params['params'])
+        else:
+            new_criterion = LOSSES[loss_params['name']]()
+        criteria.append((new_criterion, loss_params.get('weight', 1)))
 
     optimizer = OPTIMIZERS[optimizer_params["name"]](model.parameters(), **optimizer_params["params"])
 
@@ -133,7 +140,7 @@ def build_optim(model, optimizer_params, scheduler_params, loss_params):
     else:
         scheduler = None
 
-    return {"criterion": criterion, "optimizer": optimizer, "scheduler": scheduler}
+    return {"criteria": criteria, "optimizer": optimizer, "scheduler": scheduler}
 
 
 def compute_embeddings(loader, model, scaler):
@@ -160,7 +167,7 @@ def compute_embeddings(loader, model, scaler):
     return np.float32(total_embeddings), total_labels.astype(int)
 
 
-def train_epoch_constructive(train_loader, model, criterion, optimizer, scaler, ema):
+def train_epoch_constructive(train_loader, model, criteria, optimizer, scaler, ema):
     model.train()
     train_loss = []
 
@@ -175,13 +182,19 @@ def train_epoch_constructive(train_loader, model, criterion, optimizer, scaler, 
                 embed = model(images)
                 f1, f2 = torch.split(embed, [bsz, bsz], dim=0)
                 embed = torch.cat([f1.unsqueeze(1), f2.unsqueeze(1)], dim=1)
-                loss = criterion(embed, labels)
+                loss = 0
+                for (criterion, weight) in criteria:
+                    if weight != 0:
+                        loss += criterion(embed, labels) * weight
 
         else:
             embed = model(images)
             f1, f2 = torch.split(embed, [bsz, bsz], dim=0)
             embed = torch.cat([f1.unsqueeze(1), f2.unsqueeze(1)], dim=1)
-            loss = criterion(embed, labels)
+            loss = 0
+            for (criterion, weight) in criteria:
+                if weight != 0:
+                     loss += criterion(embed, labels) * weight
 
         del images, labels, embed
         torch.cuda.empty_cache()
@@ -224,7 +237,7 @@ def validation_constructive(valid_loader, train_loader, model, scaler):
     return acc_dict
 
 
-def train_epoch_ce(train_loader, model, criterion, optimizer, scaler, ema):
+def train_epoch_ce(train_loader, model, criteria, optimizer, scaler, ema):
     model.train()
     train_loss = []
 
@@ -234,14 +247,20 @@ def train_epoch_ce(train_loader, model, criterion, optimizer, scaler, ema):
         if scaler:
             with torch.cuda.amp.autocast():
                 output = model(data)
-                loss = criterion(output, target)
+                loss = 0
+                for (criterion, weight) in criteria:
+                    if weight != 0:
+                        loss += criterion(embed, labels) * weight
                 train_loss.append(loss.item())
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
                 scaler.update()
         else:
             output = model(data)
-            loss = criterion(output, target)
+            loss = 0
+            for (criterion, weight) in criteria:
+                if weight != 0:
+                    loss += criterion(embed, labels) * weight
             train_loss.append(loss.item())
             loss.backward()
             optimizer.step()
@@ -255,7 +274,7 @@ def train_epoch_ce(train_loader, model, criterion, optimizer, scaler, ema):
     return {"loss": np.mean(train_loss)}
 
 
-def validation_ce(model, criterion, valid_loader, scaler):
+def validation_ce(model, criteria, valid_loader, scaler):
     model.eval()
     val_loss = []
     valid_bs = valid_loader.batch_size
@@ -269,13 +288,17 @@ def validation_ce(model, criterion, valid_loader, scaler):
             if scaler:
                 with torch.cuda.amp.autocast():
                     output = model(data)
-                    if criterion:
-                        loss = criterion(output, target)
+                    if criteria:
+                        loss = 0
+                        for (criterion, weight) in criteria:
+                            loss += criterion(embed, labels) * weight
                         val_loss.append(loss.item())
             else:
                 output = model(data)
-                if criterion:
-                    loss = criterion(output, target)
+                if criteria:
+                    loss = 0
+                    for (criterion, weight) in criteria:
+                        loss += criterion(embed, labels) * weight
                     val_loss.append(loss.item())
 
             correct_samples += (

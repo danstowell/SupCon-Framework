@@ -30,9 +30,9 @@ scheduler:
     T_max: 20
     eta_min: 0.001
 
-criterion:
-  name: 'LabelSmoothing'
-  params:
-    classes: 100
-    smoothing: 0.01
+criteria:
+  - name: 'LabelSmoothing'
+    params:
+      classes: 100
+      smoothing: 0.01
 
