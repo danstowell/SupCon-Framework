@@ -1,6 +1,8 @@
 import torch.nn as nn
 import torch
+from torch import sqrt
 
+from .koleo_loss import KoLeoLoss as KoLeoLossOrig
 
 class SupConLoss(nn.Module):
     """Supervised Contrastive Learning: https://arxiv.org/pdf/2004.11362.pdf.
@@ -109,7 +111,21 @@ class LabelSmoothingLoss(nn.Module):
             true_dist.scatter_(1, target.data.unsqueeze(1), self.confidence)
         return torch.mean(torch.sum(-true_dist * pred, dim=self.dim))
 
+class KoLeoLoss(nn.Module):
+    "Wrapper around the original KoLeoLoss, here used to tweak the tensor before use"
+    def __init__(self):
+        super(KoLeoLoss, self).__init__()
+        self.klo = KoLeoLossOrig()
+
+    def forward(self, features, labels):
+        # NB "labels" ignored here, but the argument is for compatibility with method signatures
+        eps=1e-6 #1e-8
+        loss = sum([
+                self.klo.forward(features[:, aslice, :], eps)  # we don't compare slices to each other, since that would be self-self
+                for aslice in range(features.shape[1])])
+        return loss
 
 LOSSES = {'SupCon': SupConLoss,
           'LabelSmoothing': LabelSmoothingLoss,
-          'CrossEntropy': nn.CrossEntropyLoss}
+          'CrossEntropy': nn.CrossEntropyLoss,
+          'koleo': KoLeoLoss }

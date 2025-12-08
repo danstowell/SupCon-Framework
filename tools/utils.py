@@ -123,7 +123,7 @@ def build_model(backbone, second_stage=False, num_classes=None, ckpt_pretrained=
 def build_optim(model, optimizer_params, scheduler_params, loss_params_list, projmode):
     criteria = []
     for loss_params in loss_params_list:
-        if loss_params['name'] in ['SupCon']:
+        if loss_params['name'] in ['SupCon', 'koleo']:
             if 'params' not in loss_params:
                 loss_params['params'] = {}
 
