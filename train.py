@@ -42,7 +42,7 @@ if __name__ == "__main__":
     ema = hyperparams['train']['ema']
     ema_decay_per_epoch = hyperparams['train']['ema_decay_per_epoch']
     n_epochs = hyperparams["train"]["n_epochs"]
-    logging_name_suffix = hyperparams['train']['logging_name_suffix']
+    logging_name_suffix = hyperparams['train'].get('logging_name_suffix', '')
     target_metric = hyperparams['train']['target_metric']
     stage = hyperparams['train']['stage']
     data_dir = hyperparams["dataset"]
@@ -78,9 +78,7 @@ if __name__ == "__main__":
     )
 
     # handle logging (regular logs, tensorboard, and weights)
-    if logging_name_suffix is None:
-        logging_name_suffix = ''
-    else:
+    if logging_name_suffix != '':
         logging_name_suffix = "_" + logging_name_suffix
     koleoweightstr = "0"
     for acrit in criteria_params:

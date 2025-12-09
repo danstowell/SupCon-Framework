@@ -12,6 +12,9 @@ train:
   target_metric: accuracy
   stage: second # first = Supcon, second = FC finetuning for classification
 
+swa:
+  top_k_checkpoints: 3
+
 dataset: data/cifar100
 
 dataloaders:

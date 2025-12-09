@@ -40,11 +40,11 @@ if __name__ == "__main__":
     hyperparams = parse_config()
 
     backbone = hyperparams["model"]["backbone"]
-    #projection_dim = hyperparams['model']['projection_dim']
+    projection_dim = hyperparams['model']['projection_dim']
     num_classes = hyperparams['model']['num_classes']
-    top_k_checkoints = hyperparams['model']['top_k_checkoints']
+    top_k_checkoints = hyperparams['swa']['top_k_checkpoints']
     amp = hyperparams['train']['amp']
-    weights_dir = hyperparams['train']['weights_dir']
+    logging_name_suffix = hyperparams['train'].get('logging_name_suffix', '')
     stage = hyperparams['train']['stage']
     data_dir = hyperparams["dataset"]
     batch_sizes = {
@@ -53,12 +53,15 @@ if __name__ == "__main__":
     }
     num_workers = hyperparams["dataloaders"]["num_workers"]
 
-    # Deduce some information from the filename
-    # supcon_stage_first_resnet18_cifar10_D128_sphere
-    weights_dirname_parts = os.path.basename(weights_dir).split("_")
-    assert weights_dirname_parts[5][0]=='D'
-    projection_dim = int(weights_dirname_parts[5][1:])
-    projmode = weights_dirname_parts[6]
+    if logging_name_suffix != '':
+        logging_name_suffix = "_" + logging_name_suffix
+    koleoweightstr = "0"
+    for acrit in hyperparams["criteria"]:
+        if acrit['name']=='koleo':
+            koleoweightstr = str(acrit["weight"]).replace(".", "-")
+
+    logging_name = "supcon_stage_{}_{}_{}_D{}_{}_koleo{}{}".format(stage, backbone, data_dir.split("/")[-1], projection_dim, "sphere", koleoweightstr, logging_name_suffix)
+    weights_dir = f"weights/{logging_name}"
 
     if not amp: scaler = None
 
