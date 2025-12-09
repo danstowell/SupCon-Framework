@@ -39,6 +39,7 @@ class SupConModel(nn.Module):
         self.projection_head = True
         self.projection_dim = projection_dim
         self.embed_dim = projection_dim
+        assert projmode in ['torus', 'torul', 'hyprs', 'torusC', 'torusN', 'sphere']
         self.projmode = projmode
 
         if self.second_stage:
@@ -58,13 +59,23 @@ class SupConModel(nn.Module):
         else:
             self.embed_dim = self.features_dim
 
-    def forward(self, x):
+    def forward(self, x, donormalise=True):
         if self.second_stage:
             feat = self.encoder(x).squeeze()
             return self.classifier(feat)
         else:
             feat = self.encoder(x).squeeze()
             if self.projection_head:
-                return F.normalize(self.head(feat), dim=1)
-            else:
-                return F.normalize(feat, dim=1)
+                feat = self.head(feat)
+            if donormalise:
+                if self.projmode in ['hyprs','sphere']:
+                    feat = F.normalize(feat, dim=1)
+                elif self.projmode in ['torul', 'torusN']:
+                    # view the dims as pairwise, and L2-normalise the dim-pairs
+                    # NB the L2-norm is thus normalised to (D/2), not 1.
+                    (batchsize, ndims) = feat.shape
+                    circlesview = feat.view((batchsize, ndims//2, 2))
+                    circlesview = F.normalize(circlesview, dim=2)
+                    feat = circlesview.view((batchsize, ndims))
+
+            return feat

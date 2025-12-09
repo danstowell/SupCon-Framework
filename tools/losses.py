@@ -4,6 +4,14 @@ from torch import sqrt
 
 from .koleo_loss import KoLeoLoss as KoLeoLossOrig
 
+def clifford_project(features):
+    "Assuming the features are [0,1] torus, we project them to Clifford representation, WITHOUT rescaling to unit norm afterwards"
+    features = features * torch.pi * 2
+    cos_features = torch.cos(features)
+    sin_features = torch.sin(features)
+    features = torch.cat((cos_features, sin_features), dim=2)
+    return features
+
 class SupConLoss(nn.Module):
     """Supervised Contrastive Learning: https://arxiv.org/pdf/2004.11362.pdf.
     It also supports the unsupervised contrastive loss in SimCLR"""
@@ -13,6 +21,7 @@ class SupConLoss(nn.Module):
         self.temperature = temperature
         self.contrast_mode = contrast_mode
         self.base_temperature = base_temperature
+        assert projmode in ['torus', 'torul', 'hyprs', 'torusC', 'torusN', 'sphere']
         self.projmode = projmode
 
     def forward(self, features, labels=None, mask=None):
@@ -51,6 +60,21 @@ class SupConLoss(nn.Module):
         else:
             mask = mask.float().to(device)
 
+        cosinesim_scaler = self.temperature
+        # Convert to torus-in-circles embedding.
+        # Note that the cosine sim is divided by the dimension of the feature space,
+        #   to bring it back to the usual scale of +-1.
+        if self.projmode in ['torus', 'torusC']:
+            cosinesim_scaler *= features.shape[2]
+            features = clifford_project(features)
+        elif self.projmode in ['hyprs', 'sphere']:
+            pass
+        elif self.projmode in ['torul', 'torusN']:
+            # For L2-torus, we have essentially D/2 cosinesims, thus divide by that:
+            cosinesim_scaler *= features.shape[2] * 0.5
+        else:
+            raise ValueError(f"Unknown projmode: '{self.projmode}'")
+
         contrast_count = features.shape[1]
         contrast_feature = torch.cat(torch.unbind(features, dim=1), dim=0)
         if self.contrast_mode == 'one':
@@ -60,12 +84,12 @@ class SupConLoss(nn.Module):
             anchor_feature = contrast_feature
             anchor_count = contrast_count
         else:
-            raise ValueError('Unknown mode: {}'.format(self.contrast_mode))
+            raise ValueError('Unknown contrast mode: {}'.format(self.contrast_mode))
 
         # compute logits
         anchor_dot_contrast = torch.div(
             torch.matmul(anchor_feature, contrast_feature.T),
-            self.temperature)
+            cosinesim_scaler)
         # for numerical stability
         logits_max, _ = torch.max(anchor_dot_contrast, dim=1, keepdim=True)
         logits = anchor_dot_contrast - logits_max.detach()
@@ -117,11 +141,14 @@ class KoLeoLoss(nn.Module):
     def __init__(self, projmode='unspecified'):
         super(KoLeoLoss, self).__init__()
         self.klo = KoLeoLossOrig()
+        assert projmode in ['torus', 'torul', 'hyprs', 'torusC', 'torusN', 'sphere']
         self.projmode = projmode
 
     def forward(self, features, labels):
         # NB "labels" ignored here, but the argument is for compatibility with method signatures
         eps=1e-6 #1e-8
+        if self.projmode in ['torus', 'torusC']:
+            features = clifford_project(features) / sqrt(torch.tensor(features.shape[2]))
         loss = sum([
                 self.klo.forward(features[:, aslice, :], eps)  # we don't compare slices to each other, since that would be self-self
                 for aslice in range(features.shape[1])])

@@ -9,6 +9,8 @@ import torch.backends.cudnn as cudnn
 from sklearn.metrics import f1_score
 
 from pytorch_metric_learning.utils.accuracy_calculator import AccuracyCalculator
+from pytorch_metric_learning.utils.inference import FaissKNN
+from faiss import IndexFlatIP
 
 from .losses import LOSSES
 from .optimizers import OPTIMIZERS
@@ -144,7 +146,7 @@ def build_optim(model, optimizer_params, scheduler_params, loss_params_list, pro
     return {"criteria": criteria, "optimizer": optimizer, "scheduler": scheduler}
 
 
-def compute_embeddings(loader, model, scaler):
+def compute_embeddings(loader, model, scaler, donormalise=True):
     # note that it's okay to do len(loader) * bs, since drop_last=True is enabled
     total_embeddings = np.zeros((len(loader)*loader.batch_size, model.embed_dim))
     total_labels = np.zeros(len(loader)*loader.batch_size)
@@ -154,11 +156,11 @@ def compute_embeddings(loader, model, scaler):
         bsz = labels.shape[0]
         if scaler:
             with torch.cuda.amp.autocast():
-                embed = model(images)
+                embed = model(images, donormalise)
                 total_embeddings[idx * bsz: (idx + 1) * bsz] = embed.detach().cpu().numpy()
                 total_labels[idx * bsz: (idx + 1) * bsz] = labels.detach().numpy()
         else:
-            embed = model(images)
+            embed = model(images, donormalise)
             total_embeddings[idx * bsz: (idx + 1) * bsz] = embed.detach().cpu().numpy()
             total_labels[idx * bsz: (idx + 1) * bsz] = labels.detach().numpy()
 
@@ -178,8 +180,12 @@ def train_epoch_constructive(train_loader, model, criteria, optimizer, scaler, e
         labels = labels.cuda()
         bsz = labels.shape[0]
 
+        assert not images.isnan().any()
+
         if scaler:
             with torch.cuda.amp.autocast():
+                isbad = torch.stack([torch.isnan(p).any() for p in model.parameters()]).any()
+                assert not isbad
                 embed = model(images)
                 f1, f2 = torch.split(embed, [bsz, bsz], dim=0)
                 embed = torch.cat([f1.unsqueeze(1), f2.unsqueeze(1)], dim=1)
@@ -217,12 +223,45 @@ def train_epoch_constructive(train_loader, model, criteria, optimizer, scaler, e
     return {'loss': np.mean(train_loss)}
 
 
-def validation_constructive(valid_laoder, train_loader, model, scaler, projmode):
-    calculator = AccuracyCalculator(k=1)
+twopi = 2 * np.pi
+def circular_torus_embed(X):
+    """Clifford projection. Input data is assumed to have a shape of [npoints, ndims] and a period of 1, e.g. for a flat torus defined over [0,1]^D.
+    Note: Output is UN-normalised (the norm won't be 1). To normalise, divide by sqrt(dim), or divide by dim after you take dotprod."""
+    dimension = X.shape[1]
+    X2pi = X * twopi     # don't use *= here, because we don't want to mangle the input array
+    cosX = np.cos(X2pi)
+    sinX = np.sin(X2pi)
+    #print(sinX.shape)
+    return np.concatenate((cosX, sinX), axis=1)
+
+def unwrap_pairwise_torus(X, pandas=True):
+    """Convert from the 'torusN' representation back to a flat [0,1] hypertorus.
+    IMPORTANT: This assumes the dimensions have been normalised in adjacent pairs.
+    This is produced by torusN but NOT by torusC i.e. circular_torus_embed() in which
+    the pairs are not adjacent."""
+    if pandas:
+        X1 = X.iloc[:, 0::2]
+        X2 = X.iloc[:, 1::2]
+    else:
+        X1 = X[:, 0::2]
+        X2 = X[:, 1::2]
+    Xnew = (np.arctan2(X2, X1) / twopi) % 1.0
+    return Xnew
+
+def validation_constructive(valid_loader, train_loader, model, scaler, projmode):
+    calculator = AccuracyCalculator(k=1,
+        knn_func = FaissKNN(
+                     index_init_fn=IndexFlatIP  # inner product
+                     )
+            )
     model.eval()
 
     query_embeddings, query_labels = compute_embeddings(valid_loader, model, scaler)
     reference_embeddings, reference_labels = compute_embeddings(train_loader, model, scaler)
+
+    if projmode in ['torus', 'torusC']:
+        query_embeddings = circular_torus_embed(query_embeddings)
+        reference_embeddings = circular_torus_embed(reference_embeddings)
 
     acc_dict = calculator.get_accuracy(
         query_embeddings,
@@ -329,3 +368,14 @@ def copy_parameters_to_model(copy_of_model_parameters, model):
     for s_param, param in zip(copy_of_model_parameters, model.parameters()):
         if param.requires_grad:
             param.data.copy_(s_param.data)
+
+"""This stuff is to update some keywords in logfilenames
+from the keywords used in development to the clearer publication version"""
+projmode_mapper = {'hyprs':'sphere', 'torus': 'torusC', 'torul': 'torusN'}
+projmode_mapper_underscored = {f"_{k}_":f"_{v}_" for k, v in projmode_mapper.items()}
+def standardise_projmode_name(astr):
+	return projmode_mapper.get(astr, astr)
+def standardise_projmode_name_in_loggingname(astr):
+	for k, v in projmode_mapper_underscored.items():
+		astr = astr.replace(k, v)
+	return astr
