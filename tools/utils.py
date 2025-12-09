@@ -111,8 +111,8 @@ def build_loaders(data_dir, transforms, batch_sizes, num_workers, second_stage=F
     return {'train_supcon_loader': train_supcon_loader, 'train_features_loader': train_features_loader, 'valid_loader': valid_loader}
 
 
-def build_model(backbone, second_stage=False, num_classes=None, ckpt_pretrained=None, projection_dim=None):
-    model = SupConModel(backbone=backbone, second_stage=second_stage, num_classes=num_classes, projection_dim=projection_dim)
+def build_model(backbone, second_stage=False, num_classes=None, ckpt_pretrained=None, projection_dim=None, projmode=None):
+    model = SupConModel(backbone=backbone, second_stage=second_stage, num_classes=num_classes, projection_dim=projection_dim, projmode=projmode)
 
     if ckpt_pretrained:
         model.load_state_dict(torch.load(ckpt_pretrained)['model_state_dict'], strict=False)
@@ -126,6 +126,7 @@ def build_optim(model, optimizer_params, scheduler_params, loss_params_list, pro
         if loss_params['name'] in ['SupCon', 'koleo']:
             if 'params' not in loss_params:
                 loss_params['params'] = {}
+            loss_params['params']['projmode'] = projmode  # pushing the projection mode through to the losses
 
         if 'params' in loss_params:
             new_criterion = LOSSES[loss_params['name']](**loss_params['params'])
@@ -216,7 +217,7 @@ def train_epoch_constructive(train_loader, model, criteria, optimizer, scaler, e
     return {'loss': np.mean(train_loss)}
 
 
-def validation_constructive(valid_loader, train_loader, model, scaler):
+def validation_constructive(valid_laoder, train_loader, model, scaler, projmode):
     calculator = AccuracyCalculator(k=1)
     model.eval()
 

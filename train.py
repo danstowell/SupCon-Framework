@@ -37,6 +37,7 @@ if __name__ == "__main__":
     backbone = hyperparams["model"]["backbone"]
     ckpt_pretrained = hyperparams['model']['ckpt_pretrained']
     projection_dim = hyperparams['model']['projection_dim']
+    projmode = hyperparams["projmode"]
     num_classes = hyperparams['model']['num_classes']
     amp = hyperparams['train']['amp']
     ema = hyperparams['train']['ema']
@@ -63,14 +64,15 @@ if __name__ == "__main__":
     # create model, loaders, optimizer, etc
     transforms = utils.build_transforms(second_stage=(stage == 'second'))
     loaders = utils.build_loaders(data_dir, transforms, batch_sizes, num_workers, second_stage=(stage == 'second'))
-    model = utils.build_model(backbone, second_stage=(stage == 'second'), num_classes=num_classes, ckpt_pretrained=ckpt_pretrained, projection_dim=projection_dim).cuda()
+    model = utils.build_model(backbone, second_stage=(stage == 'second'), num_classes=num_classes, ckpt_pretrained=ckpt_pretrained, projection_dim=projection_dim, projmode=projmode).cuda()
+    print(model)
 
     if ema:
         iters = len(loaders['train_features_loader'])
         ema_decay = ema_decay_per_epoch**(1/iters)
         ema = ExponentialMovingAverage(model.parameters(), decay=ema_decay)
 
-    optim = utils.build_optim(model, optimizer_params, scheduler_params, criteria_params)
+    optim = utils.build_optim(model, optimizer_params, scheduler_params, criteria_params, projmode)
     criteria, optimizer, scheduler = (
         optim["criteria"],
         optim["optimizer"],
@@ -87,7 +89,7 @@ if __name__ == "__main__":
         if acrit["name"]=="koleo":
             koleoweightstr = str(acrit["weight"]).replace(".", "-")
             break
-    logging_name = "supcon_stage_{}_{}_{}_D{}_{}_koleo{}{}".format(stage, backbone, data_dir.split("/")[-1], projection_dim, "sphere", koleoweightstr, logging_name_suffix)
+    logging_name = "supcon_stage_{}_{}_{}_D{}_{}_koleo{}{}".format(stage, backbone, data_dir.split("/")[-1], projection_dim, projmode, koleoweightstr, logging_name_suffix)
     print(f"LOGGING NAME: {logging_name}")
 
     shutil.rmtree("weights/{}".format(logging_name), ignore_errors=True)
@@ -127,9 +129,9 @@ if __name__ == "__main__":
 
         start_validation_time = time.time()
         if stage == 'first':
-            valid_metrics_projection_head = utils.validation_constructive(loaders['valid_loader'], loaders['train_features_loader'], model, scaler)
+            valid_metrics_projection_head = utils.validation_constructive(loaders['valid_loader'], loaders['train_features_loader'], model, scaler, projmode)
             model.use_projection_head(False)
-            valid_metrics_encoder = utils.validation_constructive(loaders['valid_loader'], loaders['train_features_loader'], model, scaler)
+            valid_metrics_encoder = utils.validation_constructive(loaders['valid_loader'], loaders['train_features_loader'], model, scaler, projmode)
             model.use_projection_head(True)
             print(
                 'epoch {}, train time {:.2f} valid time {:.2f} train loss {:.2f}\nvalid acc dict projection head {}\nvalid acc dict encoder {}'.format(

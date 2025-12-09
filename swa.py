@@ -41,6 +41,7 @@ if __name__ == "__main__":
 
     backbone = hyperparams["model"]["backbone"]
     projection_dim = hyperparams['model']['projection_dim']
+    projmode = hyperparams["projmode"]
     num_classes = hyperparams['model']['num_classes']
     top_k_checkoints = hyperparams['swa']['top_k_checkpoints']
     amp = hyperparams['train']['amp']
@@ -62,7 +63,7 @@ if __name__ == "__main__":
         if acrit['name']=='koleo':
             koleoweightstr = str(acrit["weight"]).replace(".", "-")
 
-    logging_name = "supcon_stage_{}_{}_{}_D{}_{}_koleo{}{}".format(stage, backbone, data_dir.split("/")[-1], projection_dim, "sphere", koleoweightstr, logging_name_suffix)
+    logging_name = "supcon_stage_{}_{}_{}_D{}_{}_koleo{}{}".format(stage, backbone, data_dir.split("/")[-1], projection_dim, projmode, koleoweightstr, logging_name_suffix)
     weights_dir = f"weights/{logging_name}"
 
     if not amp: scaler = None
@@ -74,7 +75,7 @@ if __name__ == "__main__":
 
     transforms = utils.build_transforms(second_stage=(stage == 'second'))
     loaders = utils.build_loaders(data_dir, transforms, batch_sizes, num_workers, second_stage=(stage == 'second'))
-    model = utils.build_model(backbone, second_stage=(stage == 'second'), num_classes=num_classes, ckpt_pretrained=None, projection_dim=projection_dim).cuda()
+    model = utils.build_model(backbone, second_stage=(stage == 'second'), num_classes=num_classes, ckpt_pretrained=None, projection_dim=projection_dim, projmode=projmode).cuda()
 
     list_of_epochs = sorted([int(x.split('epoch')[1]) for x in os.listdir(weights_dir)])
     best_epochs = list_of_epochs[-top_k_checkoints::]
@@ -88,7 +89,7 @@ if __name__ == "__main__":
 
     if stage == 'first':
         valid_metrics = utils.validation_constructive(loaders['valid_loader'], loaders['train_features_loader'], model,
-                                                      scaler)
+                                                      scaler, projmode)
     else:
         valid_metrics = utils.validation_ce(model, None, loaders['valid_loader'], scaler)
 

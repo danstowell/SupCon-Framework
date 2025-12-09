@@ -32,13 +32,14 @@ def create_encoder(backbone):
 
 
 class SupConModel(nn.Module):
-    def __init__(self, backbone='resnet50', projection_dim=128, second_stage=False, num_classes=None):
+    def __init__(self, backbone='resnet50', projection_dim=128, second_stage=False, num_classes=None, projmode=None):
         super(SupConModel, self).__init__()
         self.encoder, self.features_dim = create_encoder(backbone)
         self.second_stage = second_stage
         self.projection_head = True
         self.projection_dim = projection_dim
         self.embed_dim = projection_dim
+        self.projmode = projmode
 
         if self.second_stage:
             for param in self.encoder.parameters():
