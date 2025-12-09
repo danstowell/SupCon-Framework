@@ -24,7 +24,7 @@ To be more precise, in this implementations you will find:
 
 1. Clone the repo:
 ```
-git clone https://github.com/ivanpanshin/SupCon-Framework && cd SupCon-Framework/
+git clone https://github.com/danstowell/SupCon-Framework && cd SupCon-Framework/
 ```
 
 2. Create a clean virtual environment 
@@ -38,7 +38,36 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 ````
 
-## Training
+## Training (Dan's instructions)
+
+First make sure you're using the right branch. At time of writing, the torus extensions are in the "torus" git branch.
+
+To run a single run of training, using just one set of hyperparameters as specified in the config file:
+
+```
+python train.py --config_name configs/train/train_supcon_resnet18_cifar10_stage1.yml
+python swa.py --config_name configs/train/train_supcon_resnet18_cifar10_stage1.yml
+```
+
+You can then edit the config hyperparameters and re-run the above. If you want to evaluate many different settings (as in the paper), then you will need to go through that loop repeatedly, changing the config file each time.
+
+Then to extract, compile, evaluate all the runs conducted so far:
+
+```
+python embeddings_extract.py
+python embeddings_eval.py
+
+# results plots
+python plot_evalmeasures.py
+python plot_embedding_example.py
+```
+
+Note that I have not used "stage2", only stage1.
+
+To use torus embeddings, change the config param "projmode: sphere" to "torusC" or (better) "torusN"
+
+
+## Training (original instructions)
 
 In order to execute Cifar10 training run:
 ```
