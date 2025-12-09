@@ -25,6 +25,11 @@ def create_encoder(backbone):
     except TypeError:
         raise TypeError('Can\'t find the linear layer of the model')
 
+    # Gradient clipping, applied to the final layer before the embedding topology transform
+    clip_value = 1e2  # 1e12 is so large to be "no-op"; 1000 was my good guess; 100 applied in practice.
+    for p in model.parameters():
+        p.register_hook(lambda grad: torch.clamp(grad, -clip_value, clip_value))
+
     features_dim = potential_last_layer.in_features
     model = torch.nn.Sequential(*list(model.children())[:-1])
 
@@ -48,9 +53,9 @@ class SupConModel(nn.Module):
             self.classifier = nn.Linear(self.features_dim, num_classes)
         else:
             self.head = nn.Sequential(
-                nn.Linear(self.features_dim, self.features_dim),
+                nn.Linear(self.features_dim, self.projection_dim * 4),
                 nn.ReLU(inplace=True),
-                nn.Linear(self.features_dim, self.projection_dim))
+                nn.Linear(self.projection_dim * 4, self.projection_dim))
 
     def use_projection_head(self, mode):
         self.projection_head = mode
