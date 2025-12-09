@@ -43,9 +43,9 @@ pip install -r requirements.txt
 In order to execute Cifar10 training run:
 ```
 python train.py --config_name configs/train/train_supcon_resnet18_cifar10_stage1.yml
-python swa.py --config_name configs/train/swa_supcon_resnet18_cifar10_stage1.yml
+python swa.py --config_name configs/train/train_supcon_resnet18_cifar10_stage1.yml
 python train.py --config_name configs/train/train_supcon_resnet18_cifar10_stage2.yml
-python swa.py --config_name configs/train/swa_supcon_resnet18_cifar10_stage2.yml
+python swa.py --config_name configs/train/train_supcon_resnet18_cifar10_stage2.yml
 ```
 
 In order to run LRFinder on the second stage of the training, run:

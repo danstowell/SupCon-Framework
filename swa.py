@@ -44,7 +44,7 @@ if __name__ == "__main__":
     num_classes = hyperparams['model']['num_classes']
     top_k_checkoints = hyperparams['swa']['top_k_checkpoints']
     amp = hyperparams['train']['amp']
-    logging_name_suffix = hyperparams['train'].get('logging_name_suffix', '')
+    logging_name_suffix = hyperparams['train'].get('logging_name_suffix', None)
     stage = hyperparams['train']['stage']
     data_dir = hyperparams["dataset"]
     batch_sizes = {
@@ -53,8 +53,10 @@ if __name__ == "__main__":
     }
     num_workers = hyperparams["dataloaders"]["num_workers"]
 
-    if logging_name_suffix != '':
+    if logging_name_suffix:
         logging_name_suffix = "_" + logging_name_suffix
+    else:
+        logging_name_suffix = ''
     koleoweightstr = "0"
     for acrit in hyperparams["criteria"]:
         if acrit['name']=='koleo':
